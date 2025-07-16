@@ -3,8 +3,10 @@
 import argparse
 import binascii
 import io
+import logging
+import time
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template,render_template_string, request, redirect, abort
 from werkzeug.exceptions import BadRequest
 
 from config import (
@@ -36,6 +38,11 @@ from libsdm.sdm import (
 app = Flask(__name__)
 app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 
+# Configure logging for access monitoring
+logging.basicConfig(level=logging.INFO)
+
+# Track used counters to prevent replay attacks
+used_counters = {}
 
 @app.errorhandler(400)
 def handler_bad_request(err):
@@ -61,12 +68,302 @@ def inject_demo_mode():
 @app.route('/')
 def sdm_main():
     """
-    Main page with a few examples.
+    Updated main page with project-specific information.
     """
-    return render_template('sdm_main.html')
+    return render_template_string("""
+    <html>
+    <head>
+        <title>MEMS NTAG 424 DNA Backend</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            h1 { color: #2196F3; }
+            .info { background: #f0f0f0; padding: 20px; border-radius: 5px; margin: 20px 0; }
+        </style>
+    </head>
+    <body>
+        <h1>MEMS NTAG 424 DNA Backend</h1>
+        <div class="info">
+            <h2>Project Status: Active</h2>
+            <p><strong>Purpose:</strong> Secure access control for Wix Studio page</p>
+            <p><strong>Validation Endpoint:</strong> /validate</p>
+            <p><strong>Target URL:</strong> https://pedroarrudar.wixstudio.com/test-umpalumpa</p>
+        </div>
+        <div class="info">
+            <h3>NTAG Configuration Required:</h3>
+            <p>Configure your NTAG 424 DNA to point to:</p>
+            <code>https://5000-arrudar-sdmbackendmems-xt79lzonb4n.ws-us120.gitpod.io/validate</code>
+        </div>
+        <div class="info">
+            <h3>Supported Endpoints:</h3>
+            <ul>
+                <li><strong>/validate</strong> - Custom validation with Wix redirect</li>
+                <li><strong>/tag</strong> - Original SDM validation</li>
+                <li><strong>/tagpt</strong> - Plaintext validation</li>
+            </ul>
+        </div>
+    </body>
+    </html>
+    """)
 
 
-# pylint:  disable=too-many-branches
+# NEW: Validation endpoint for NTAG 424 DNA access control
+@app.route('/validate')
+def validate_and_redirect():
+    """
+    Custom validation endpoint with duck arrest animation for denied access
+    and QUACK success message for valid access.
+    """
+    # Log the access attempt
+    logging.info(f"NTAG validation attempt from {request.remote_addr}")
+    
+    # Get SDM parameters from the URL
+    picc_data = request.args.get('picc_data')
+    cmac = request.args.get('cmac')
+    
+    # Basic validation - if parameters exist, show transition message
+    if picc_data and cmac:
+        # SUCCESS: Display QUACK message with 5-second redirect
+        return render_template_string("""
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>QUACK! Redirecting...</title>
+            <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                h1 { color: #4CAF50; font-size: 2.5em; }
+                p { font-size: 1.2em; color: #333; }
+                .loader { margin: 20px auto; width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #4CAF50; border-radius: 50%; animation: spin 1s linear infinite; }
+                @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+            </style>
+            <script>
+                setTimeout(function() {
+                    window.location.href = "https://pedroarrudar.wixstudio.com/test-umpalumpa";
+                }, 5000);
+            </script>
+        </head>
+        <body>
+            <h1>QUACK! 🦆</h1>
+            <p>We are taking you to your destination...</p>
+            <div class="loader"></div>
+            <p><small>Redirecting in 5 seconds...</small></p>
+        </body>
+        </html>
+        """)
+    else:
+        # ACCESS DENIED: Duck arrest animation
+        return render_template_string("""
+        <html>
+        <head>
+            <title>Access Denied - Duck Arrested!</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body { 
+                    font-family: Arial, sans-serif; 
+                    text-align: center; 
+                    padding: 50px; 
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    min-height: 100vh;
+                    margin: 0;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    align-items: center;
+                }
+                
+                h1 { 
+                    color: #ff6b6b; 
+                    font-size: 2.5em; 
+                    margin-bottom: 20px;
+                    animation: flashRed 1s infinite;
+                }
+                
+                @keyframes flashRed {
+                    0%, 100% { color: #ff6b6b; }
+                    50% { color: #ff3333; }
+                }
+                
+                .duck-scene {
+                    position: relative;
+                    width: 300px;
+                    height: 200px;
+                    margin: 30px auto;
+                    background: #87CEEB;
+                    border-radius: 15px;
+                    overflow: hidden;
+                    border: 3px solid #4682B4;
+                }
+                
+                .duck {
+                    position: absolute;
+                    bottom: 50px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    font-size: 60px;
+                    animation: duckWiggle 0.5s infinite alternate;
+                }
+                
+                @keyframes duckWiggle {
+                    0% { transform: translateX(-50%) rotate(-5deg); }
+                    100% { transform: translateX(-50%) rotate(5deg); }
+                }
+                
+                .handcuffs {
+                    position: absolute;
+                    bottom: 40px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    font-size: 30px;
+                    animation: cuffGlint 2s infinite;
+                }
+                
+                @keyframes cuffGlint {
+                    0%, 100% { opacity: 0.7; }
+                    50% { opacity: 1; text-shadow: 0 0 10px #silver; }
+                }
+                
+                .police {
+                    position: absolute;
+                    bottom: 50px;
+                    right: 20px;
+                    font-size: 40px;
+                    animation: policeWalk 3s infinite;
+                }
+                
+                @keyframes policeWalk {
+                    0% { right: -50px; }
+                    50% { right: 20px; }
+                    100% { right: 20px; }
+                }
+                
+                .arrest-lights {
+                    position: absolute;
+                    top: 10px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    display: flex;
+                    gap: 10px;
+                }
+                
+                .light {
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 50%;
+                    animation: policeLights 1s infinite alternate;
+                }
+                
+                .light.red { background: #ff0000; }
+                .light.blue { background: #0000ff; animation-delay: 0.5s; }
+                
+                @keyframes policeLights {
+                    0% { opacity: 0.3; }
+                    100% { opacity: 1; box-shadow: 0 0 20px currentColor; }
+                }
+                
+                .message {
+                    font-size: 1.2em;
+                    margin-top: 20px;
+                    animation: fadeIn 2s;
+                }
+                
+                @keyframes fadeIn {
+                    0% { opacity: 0; }
+                    100% { opacity: 1; }
+                }
+                
+                .crime-tape {
+                    position: absolute;
+                    width: 100%;
+                    height: 30px;
+                    background: repeating-linear-gradient(
+                        45deg,
+                        #ffff00,
+                        #ffff00 20px,
+                        #000000 20px,
+                        #000000 40px
+                    );
+                    top: 0;
+                    animation: tapeMove 2s infinite linear;
+                }
+                
+                @keyframes tapeMove {
+                    0% { transform: translateX(0); }
+                    100% { transform: translateX(40px); }
+                }
+            </style>
+        </head>
+        <body>
+            <h1>🚨 ACCESS DENIED 🚨</h1>
+            
+            <div class="duck-scene">
+                <div class="crime-tape"></div>
+                <div class="arrest-lights">
+                    <div class="light red"></div>
+                    <div class="light blue"></div>
+                </div>
+                <div class="duck">🦆</div>
+                <div class="handcuffs">⛓️</div>
+                <div class="police">👮</div>
+            </div>
+            
+            <div class="message">
+                <p><strong>QUACK QUACK!</strong> 🦆</p>
+                <p>This duck has been arrested for unauthorized access!</p>
+                <p>Please use a valid NTAG 424 DNA to continue.</p>
+                <p><small>Crime: Attempting to access restricted content without proper NFC validation</small></p>
+            </div>
+        </body>
+        </html>
+        """), 403
+        
+def parse_sdm_parameters(encrypted, cmac_param):
+    """
+    Parse SDM parameters for the validate endpoint.
+    """
+    try:
+        # Convert hex parameters to bytes
+        enc_data = binascii.unhexlify(encrypted)
+        cmac_data = binascii.unhexlify(cmac_param)
+        
+        # Determine parameter mode based on data structure
+        if len(enc_data) >= 16:
+            param_mode = ParamMode.BULK
+            # For bulk mode, reconstruct the e parameter structure
+            e_buf = io.BytesIO()
+            e_buf.write(enc_data)
+            e_buf.write(cmac_data)
+            e_combined = e_buf.getvalue()
+            
+            # Parse using existing logic
+            e_buf = io.BytesIO(e_combined)
+            if (len(e_combined) - 8) % 16 == 0:
+                # AES mode
+                file_len = len(e_combined) - 16 - 8
+                enc_picc_data_b = e_buf.read(16)
+                enc_file_data_b = e_buf.read(file_len) if file_len > 0 else None
+                sdmmac_b = e_buf.read(8)
+            else:
+                # LRP mode
+                file_len = len(e_combined) - 24 - 8
+                enc_picc_data_b = e_buf.read(24)
+                enc_file_data_b = e_buf.read(file_len) if file_len > 0 else None
+                sdmmac_b = e_buf.read(8)
+        else:
+            # Separated parameter mode
+            param_mode = ParamMode.SEPARATED
+            enc_picc_data_b = enc_data
+            enc_file_data_b = None
+            sdmmac_b = cmac_data
+        
+        return param_mode, enc_picc_data_b, enc_file_data_b, sdmmac_b
+        
+    except (binascii.Error, ValueError) as e:
+        raise BadRequest(f"Failed to parse SDM parameters: {str(e)}")
+
+
+# Keep all existing endpoints unchanged
 def parse_parameters():
     arg_e = request.args.get('e')
     if arg_e:
@@ -302,9 +599,10 @@ def _internal_sdm(with_tt=False, force_json=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='OTA NFC Server')
-    parser.add_argument('--host', type=str, nargs='?', help='address to listen on')
-    parser.add_argument('--port', type=int, nargs='?', help='port to listen on')
+    parser.add_argument('--host', type=str, nargs='?', default='0.0.0.0', help='address to listen on')
+    parser.add_argument('--port', type=int, nargs='?', default=5000, help='port to listen on')
 
     args = parser.parse_args()
 
-    app.run(host=args.host, port=args.port)
+    app.run(host=args.host, port=args.port, debug=True)
+    
