@@ -9,7 +9,7 @@ import time
 from flask import Flask, jsonify, render_template,render_template_string, request, redirect, abort
 from werkzeug.exceptions import BadRequest
 
-from config import (
+from config.dist import (
     CTR_PARAM,
     ENC_FILE_DATA_PARAM,
     ENC_PICC_DATA_PARAM,
