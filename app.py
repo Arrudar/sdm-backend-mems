@@ -139,7 +139,7 @@ def validate_and_redirect():
             first_access = url_access_times[url_hash]
             time_elapsed = current_time - first_access
             
-            if time_elapsed <= 300:  # 5 minutes
+            if time_elapsed <= 5:  # 5 minutes
                 # URL still valid
                 remaining_minutes = int((5 - time_elapsed) / 60) + 1
                 logging.info(f"Valid access: {remaining_minutes} minutes remaining")
