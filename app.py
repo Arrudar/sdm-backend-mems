@@ -110,6 +110,10 @@ def sdm_main():
 # NEW: Validation endpoint for NTAG 424 DNA access control
 @app.route('/validate')
 def validate_and_redirect():
+    """
+    Custom validation endpoint with duck arrest animation for denied access
+    and QUACK success message for valid access.
+    """
     # Log the access attempt
     logging.info(f"NTAG validation attempt from {request.remote_addr}")
     
@@ -117,78 +121,204 @@ def validate_and_redirect():
     picc_data = request.args.get('picc_data')
     cmac = request.args.get('cmac')
     
+    # Basic validation - if parameters exist, show transition message
     if picc_data and cmac:
-        # SUCCESS: Fetch Wix Studio content and serve it
-        try:
-            # Fetch the Wix Studio page content
-            wix_response = requests.get(
-                "https://pedroarrudar.wixstudio.com/test-umpalumpa",
-                headers={
-                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-                },
-                timeout=10
-            )
-            
-            if wix_response.status_code == 200:
-                # Show QUACK message first, then serve content
-                return render_template_string("""
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>QUACK! Loading Content...</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-                        h1 { color: #4CAF50; font-size: 2.5em; }
-                        p { font-size: 1.2em; color: #333; }
-                        .loader { margin: 20px auto; width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #4CAF50; border-radius: 50%; animation: spin 1s linear infinite; }
-                        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-                        .hidden { display: none; }
-                    </style>
-                    <script>
-                        setTimeout(function() {
-                            document.getElementById('loading').classList.add('hidden');
-                            document.getElementById('content').classList.remove('hidden');
-                        }, 3000);
-                    </script>
-                </head>
-                <body>
-                    <div id="loading">
-                        <h1>QUACK! 🦆</h1>
-                        <p>We are fetching your exclusive content...</p>
-                        <div class="loader"></div>
-                        <p><small>Loading in 3 seconds...</small></p>
-                    </div>
-                    <div id="content" class="hidden">
-                        {{ wix_content|safe }}
-                    </div>
-                </body>
-                </html>
-                """, wix_content=wix_response.text)
-            else:
-                # Fallback if Wix content unavailable
-                return render_template_string("""
-                <html><body>
-                <h1>QUACK! 🦆</h1>
-                <p>Content temporarily unavailable. Please try again later.</p>
-                </body></html>
-                """)
-                
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Failed to fetch Wix content: {e}")
-            return render_template_string("""
-            <html><body>
-            <h1>QUACK! 🦆</h1>
-            <p>Service temporarily unavailable. Please try again later.</p>
-            </body></html>
-            """)
-    else:
-        # ACCESS DENIED: Duck arrest animation (keep existing code)
+        # SUCCESS: Display QUACK message with 5-second redirect
         return render_template_string("""
-        <!-- Your existing duck arrest animation code -->
-        """), 403
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>QUACK! Redirecting...</title>
+            <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                h1 { color: #4CAF50; font-size: 2.5em; }
+                p { font-size: 1.2em; color: #333; }
+                .loader { margin: 20px auto; width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #4CAF50; border-radius: 50%; animation: spin 1s linear infinite; }
+                @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+            </style>
+            <script>
+                setTimeout(function() {
+                    window.location.href = "https://pedroarrudar.wixstudio.com/test-umpalumpa";
+                }, 5000);
+            </script>
+        </head>
+        <body>
+            <h1>QUACK! 🦆</h1>
+            <p>We are taking you to your destination...</p>
+            <div class="loader"></div>
+            <p><small>Redirecting in 5 seconds...</small></p>
+        </body>
+        </html>
+        """)
+    else:
+        # ACCESS DENIED: Duck arrest animation
+        return render_template_string("""
+        <html>
+        <head>
+            <title>Access Denied - Duck Arrested!</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body { 
+                    font-family: Arial, sans-serif; 
+                    text-align: center; 
+                    padding: 50px; 
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    min-height: 100vh;
+                    margin: 0;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    align-items: center;
+                }
+                
+                h1 { 
+                    color: #ff6b6b; 
+                    font-size: 2.5em; 
+                    margin-bottom: 20px;
+                    animation: flashRed 1s infinite;
+                }
+                
+                @keyframes flashRed {
+                    0%, 100% { color: #ff6b6b; }
+                    50% { color: #ff3333; }
+                }
+                
+                .duck-scene {
+                    position: relative;
+                    width: 300px;
+                    height: 200px;
+                    margin: 30px auto;
+                    background: #87CEEB;
+                    border-radius: 15px;
+                    overflow: hidden;
+                    border: 3px solid #4682B4;
+                }
+                
+                .duck {
+                    position: absolute;
+                    bottom: 50px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    font-size: 60px;
+                    animation: duckWiggle 0.5s infinite alternate;
+                }
+                
+                @keyframes duckWiggle {
+                    0% { transform: translateX(-50%) rotate(-5deg); }
+                    100% { transform: translateX(-50%) rotate(5deg); }
+                }
+                
+                .handcuffs {
+                    position: absolute;
+                    bottom: 40px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    font-size: 30px;
+                    animation: cuffGlint 2s infinite;
+                }
+                
+                @keyframes cuffGlint {
+                    0%, 100% { opacity: 0.7; }
+                    50% { opacity: 1; text-shadow: 0 0 10px #silver; }
+                }
+                
+                .police {
+                    position: absolute;
+                    bottom: 50px;
+                    right: 20px;
+                    font-size: 40px;
+                    animation: policeWalk 3s infinite;
+                }
+                
+                @keyframes policeWalk {
+                    0% { right: -50px; }
+                    50% { right: 20px; }
+                    100% { right: 20px; }
+                }
+                
+                .arrest-lights {
+                    position: absolute;
+                    top: 10px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    display: flex;
+                    gap: 10px;
+                }
+                
+                .light {
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 50%;
+                    animation: policeLights 1s infinite alternate;
+                }
+                
+                .light.red { background: #ff0000; }
+                .light.blue { background: #0000ff; animation-delay: 0.5s; }
+                
+                @keyframes policeLights {
+                    0% { opacity: 0.3; }
+                    100% { opacity: 1; box-shadow: 0 0 20px currentColor; }
+                }
+                
+                .message {
+                    font-size: 1.2em;
+                    margin-top: 20px;
+                    animation: fadeIn 2s;
+                }
+                
+                @keyframes fadeIn {
+                    0% { opacity: 0; }
+                    100% { opacity: 1; }
+                }
+                
+                .crime-tape {
+                    position: absolute;
+                    width: 100%;
+                    height: 30px;
+                    background: repeating-linear-gradient(
+                        45deg,
+                        #ffff00,
+                        #ffff00 20px,
+                        #000000 20px,
+                        #000000 40px
+                    );
+                    top: 0;
+                    animation: tapeMove 2s infinite linear;
+                }
+                
+                @keyframes tapeMove {
+                    0% { transform: translateX(0); }
+                    100% { transform: translateX(40px); }
+                }
+            </style>
+        </head>
+        <body>
+            <h1>🚨 ACCESS DENIED 🚨</h1>
             
+            <div class="duck-scene">
+                <div class="crime-tape"></div>
+                <div class="arrest-lights">
+                    <div class="light red"></div>
+                    <div class="light blue"></div>
+                </div>
+                <div class="duck">🦆</div>
+                <div class="handcuffs">⛓️</div>
+                <div class="police">👮</div>
+            </div>
+            
+            <div class="message">
+                <p><strong>QUACK QUACK!</strong> 🦆</p>
+                <p>This duck has been arrested for unauthorized access!</p>
+                <p>Please use a valid NTAG 424 DNA to continue.</p>
+                <p><small>Crime: Attempting to access restricted content without proper NFC validation</small></p>
+            </div>
+        </body>
+        </html>
+        """), 403
+        
 def parse_sdm_parameters(encrypted, cmac_param):
     """
     Parse SDM parameters for the validate endpoint.
