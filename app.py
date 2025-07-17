@@ -125,46 +125,63 @@ def validate_and_redirect():
     if picc_data and cmac:
         return render_template_string("""
         <html>
-        <head>
-            <title>QUACK! Secure Access</title>
-            <style>
-                body { margin: 0; padding: 0; }
-                .loading { 
-                    position: fixed; 
-                    top: 0; 
-                    left: 0; 
-                    width: 100%; 
-                    height: 100%; 
-                    background: white; 
-                    display: flex; 
-                    justify-content: center; 
-                    align-items: center; 
-                    z-index: 9999; 
-                }
-                .content { display: none; }
-                iframe { width: 100%; height: 100vh; border: none; }
-            </style>
-            <script>
-                setTimeout(function() {
-                    document.getElementById('loading').style.display = 'none';
-                    document.getElementById('content').style.display = 'block';
-                }, 3000);
-            </script>
-        </head>
-        <body>
-            <div id="loading" class="loading">
-                <h1>QUACK! 🦆</h1>
-                <p> </p>
-                <p>Loading your exclusive content...</p>
-            </div>
-            <div id="content" class="content">
-                <iframe src="https://pedroarrudar.wixstudio.com/test-umpalumpa" 
-                        sandbox="allow-scripts allow-same-origin allow-forms">
-                </iframe>
-            </div>
-        </body>
-        </html>
-        """)
+    <head>
+        <title>QUACK! Secure Access</title>
+        <style>
+            body { margin: 0; padding: 0; }
+            .loading { 
+                position: fixed; 
+                top: 0; 
+                left: 0; 
+                width: 100%; 
+                height: 100%; 
+                background: white; 
+                display: flex; 
+                flex-direction: column;
+                justify-content: center; 
+                align-items: center; 
+                z-index: 9999; 
+            }
+            .loading h1 { color: #4CAF50; font-size: 2.5em; margin-bottom: 20px; }
+            .loading p { font-size: 1.2em; color: #333; }
+            .loader {
+                width: 50px;
+                height: 50px;
+                border: 5px solid #f3f3f3;
+                border-top: 5px solid #4CAF50;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                margin: 20px 0;
+            }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            .content { display: none; }
+            iframe { width: 100%; height: 100vh; border: none; }
+        </style>
+        <script>
+            setTimeout(function() {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+            }, 3000);
+        </script>
+    </head>
+    <body>
+        <div id="loading" class="loading">
+            <h1>QUACK! 🦆</h1>
+            <p>We are taking you to your exclusive album...</p>
+            <div class="loader"></div>
+            <p><small>Loading MEMSlide content...</small></p>
+        </div>
+        <div id="content" class="content">
+            <iframe src="https://pedroarrudar.wixstudio.com/test-umpalumpa" 
+                    sandbox="allow-scripts allow-same-origin allow-forms">
+            </iframe>
+        </div>
+    </body>
+    </html>
+    """)
             
     else:
         # ACCESS DENIED: Duck arrest animation (keep your existing code)
@@ -327,8 +344,8 @@ def validate_and_redirect():
             <div class="message">
                 <p><strong>QUACK QUACK!</strong> 🦆</p>
                 <p>This duck has been arrested for unauthorized access!</p>
-                <p>Please use a valid NTAG 424 DNA to continue.</p>
-                <p><small>Crime: Attempting to access restricted content without proper NFC validation</small></p>
+                <p>Please touch a valid MEMSlide with your phone to continue.</p>
+                <p><small>Crime: Attempting to access restricted album content without proper MEMSlide validation</small></p>
             </div>
         </body>
         </html>
