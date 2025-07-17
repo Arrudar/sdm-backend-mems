@@ -6,9 +6,10 @@ import io
 import os
 import requests
 import logging
+import hashlib
 import time
 
-from flask import Flask, Response, jsonify, render_template,render_template_string, request, redirect, abort
+from flask import Flask, Response, session, jsonify, render_template,render_template_string, request, redirect, abort
 from werkzeug.exceptions import BadRequest
 
 from config import (
@@ -109,82 +110,270 @@ def sdm_main():
 
 
 # NEW: Validation endpoint for NTAG 424 DNA access control
+
+# In-memory storage for URL access tracking
+url_access_times = {}
+
 @app.route('/validate')
 def validate_and_redirect():
     """
-    Complete URL masking implementation for NTAG 424 DNA validation.
-    Fetches Wix Studio content server-side and serves it without exposing the URL.
+    Time-based URL validation - URLs valid for 5 minutes after first access.
     """
     # Log the access attempt
     logging.info(f"NTAG validation attempt from {request.remote_addr}")
     
-    # Get SDM parameters from the URL
+    # Get the complete query string and clean it
+    query_string = request.query_string.decode('utf-8')
+    
+    # Remove trial version string from URL
+    if '_____TRIAL_VERSION______NOT_FOR_PRODUCTION_____' in query_string:
+        # Clean the query string by removing the trial version parameter
+        query_parts = query_string.split('&')
+        cleaned_parts = [part for part in query_parts if '_____TRIAL_VERSION______NOT_FOR_PRODUCTION_____' not in part]
+        cleaned_query = '&'.join(cleaned_parts)
+        logging.info(f"Cleaned trial version from URL: {cleaned_query}")
+    else:
+        cleaned_query = query_string
+    
+    # Get SDM parameters from the cleaned URL
     picc_data = request.args.get('picc_data')
+    enc = request.args.get('enc')
     cmac = request.args.get('cmac')
     
-    if picc_data and cmac:
-        return render_template_string("""
-        <html>
-    <head>
-        <title>QUACK! Secure Access</title>
-        <style>
-            body { margin: 0; padding: 0; }
-            .loading { 
-                position: fixed; 
-                top: 0; 
-                left: 0; 
-                width: 100%; 
-                height: 100%; 
-                background: white; 
-                display: flex; 
-                flex-direction: column;
-                justify-content: center; 
-                align-items: center; 
-                z-index: 9999; 
-            }
-            .loading h1 { color: #4CAF50; font-size: 2.5em; margin-bottom: 20px; }
-            .loading p { font-size: 1.2em; color: #333; }
-            .loader {
-                width: 50px;
-                height: 50px;
-                border: 5px solid #f3f3f3;
-                border-top: 5px solid #4CAF50;
-                border-radius: 50%;
-                animation: spin 1s linear infinite;
-                margin: 20px 0;
-            }
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-            .content { display: none; }
-            iframe { width: 100%; height: 100vh; border: none; }
-        </style>
-        <script>
-            setTimeout(function() {
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('content').style.display = 'block';
-            }, 3000);
-        </script>
-    </head>
-    <body>
-        <div id="loading" class="loading">
-            <h1>QUACK! 🦆</h1>
-            <p>We are taking you to your exclusive album...</p>
-            <div class="loader"></div>
-            <p><small>Loading MEMSlide content...</small></p>
-        </div>
-        <div id="content" class="content">
-            <iframe src="https://pedroarrudar.wixstudio.com/test-umpalumpa" 
-                    sandbox="allow-scripts allow-same-origin allow-forms">
-            </iframe>
-        </div>
-    </body>
-    </html>
-    """)
+    if picc_data and enc and cmac:
+        # Create unique identifier for this specific URL
+        url_hash = hashlib.md5(f"{picc_data}{enc}{cmac}".encode()).hexdigest()
+        current_time = time.time()
+        
+        # Check if this URL has been accessed before
+        if url_hash in url_access_times:
+            first_access_time = url_access_times[url_hash]
+            time_since_first_access = current_time - first_access_time
             
+            if time_since_first_access <= 300:  # 5 minutes = 300 seconds
+                # URL is still valid - allow access
+                remaining_time = 300 - time_since_first_access
+                logging.info(f"Valid access from {request.remote_addr}: URL has {remaining_time:.0f} seconds remaining")
+                
+                # SUCCESS: Grant access with remaining time info
+                return render_template_string("""
+                <html>
+                <head>
+                    <title>QUACK! Secure Access</title>
+                    <style>
+                        body { margin: 0; padding: 0; }
+                        .loading { 
+                            position: fixed; 
+                            top: 0; 
+                            left: 0; 
+                            width: 100%; 
+                            height: 100%; 
+                            background: white; 
+                            display: flex; 
+                            flex-direction: column;
+                            justify-content: center; 
+                            align-items: center; 
+                            z-index: 9999; 
+                        }
+                        .loading h1 { color: #4CAF50; font-size: 2.5em; margin-bottom: 20px; }
+                        .loading p { font-size: 1.2em; color: #333; }
+                        .loader {
+                            width: 50px;
+                            height: 50px;
+                            border: 5px solid #f3f3f3;
+                            border-top: 5px solid #4CAF50;
+                            border-radius: 50%;
+                            animation: spin 1s linear infinite;
+                            margin: 20px 0;
+                        }
+                        @keyframes spin {
+                            0% { transform: rotate(0deg); }
+                            100% { transform: rotate(360deg); }
+                        }
+                        .content { display: none; }
+                        iframe { width: 100%; height: 100vh; border: none; }
+                        .timer { font-size: 0.9em; color: #666; margin-top: 10px; }
+                    </style>
+                    <script>
+                        setTimeout(function() {
+                            document.getElementById('loading').style.display = 'none';
+                            document.getElementById('content').style.display = 'block';
+                        }, 3000);
+                    </script>
+                </head>
+                <body>
+                    <div id="loading" class="loading">
+                        <h1>QUACK! 🦆</h1>
+                        <p>We are taking you to your exclusive album...</p>
+                        <div class="loader"></div>
+                        <p><small>Loading MEMSlide content...</small></p>
+                        <div class="timer">
+                            <small>⏱️ This access expires in {{ remaining_minutes }} minutes</small>
+                        </div>
+                    </div>
+                    <div id="content" class="content">
+                        <iframe src="https://pedroarrudar.wixstudio.com/test-umpalumpa" 
+                                sandbox="allow-scripts allow-same-origin allow-forms">
+                        </iframe>
+                    </div>
+                </body>
+                </html>
+                """, remaining_minutes=int(remaining_time // 60) + 1)
+            else:
+                # URL has expired - deny access
+                logging.warning(f"Expired URL access from {request.remote_addr}: URL expired {time_since_first_access - 300:.0f} seconds ago")
+                
+                # Remove expired URL from tracking
+                del url_access_times[url_hash]
+                
+                return render_template_string("""
+                <html>
+                <head>
+                    <title>Access Expired - Duck Arrested!</title>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <style>
+                        body { 
+                            font-family: Arial, sans-serif; 
+                            text-align: center; 
+                            padding: 50px; 
+                            background: linear-gradient(135deg, #ff9800 0%, #ffb74d 100%);
+                            color: white;
+                            min-height: 100vh;
+                            margin: 0;
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: center;
+                            align-items: center;
+                        }
+                        h1 { 
+                            color: #fff; 
+                            font-size: 2.5em; 
+                            margin-bottom: 20px;
+                            animation: flashOrange 1s infinite;
+                        }
+                        @keyframes flashOrange {
+                            0%, 100% { color: #fff; }
+                            50% { color: #ffe0b2; }
+                        }
+                        .clock-icon {
+                            font-size: 80px;
+                            margin: 20px 0;
+                            animation: tickTock 1s infinite;
+                        }
+                        @keyframes tickTock {
+                            0%, 100% { transform: rotate(-10deg); }
+                            50% { transform: rotate(10deg); }
+                        }
+                        .message {
+                            font-size: 1.2em;
+                            margin-top: 20px;
+                            animation: fadeIn 2s;
+                        }
+                        @keyframes fadeIn {
+                            0% { opacity: 0; }
+                            100% { opacity: 1; }
+                        }
+                        .instruction {
+                            background: rgba(255,255,255,0.2);
+                            padding: 15px;
+                            border-radius: 10px;
+                            margin-top: 20px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h1>⏰ ACCESS EXPIRED ⏰</h1>
+                    <div class="clock-icon">🕐</div>
+                    <div class="message">
+                        <p><strong>QUACK!</strong> 🦆</p>
+                        <p>This MEMSlide access has expired after 5 minutes.</p>
+                        <div class="instruction">
+                            <p><strong>To access the album again:</strong></p>
+                            <p>👆 Touch your MEMSlide with your phone again to generate a new access link</p>
+                        </div>
+                        <p><small>Security: Time-limited access prevents link sharing</small></p>
+                    </div>
+                </body>
+                </html>
+                """), 403
+        else:
+            # First time accessing this URL - record the access time
+            url_access_times[url_hash] = current_time
+            logging.info(f"New URL access from {request.remote_addr}: 5-minute timer started")
+            
+            # Clean up old entries (older than 5 minutes)
+            cleanup_time = current_time - 300
+            url_access_times = {k: v for k, v in url_access_times.items() if v > cleanup_time}
+            
+            # SUCCESS: Grant access for new URL
+            return render_template_string("""
+            <html>
+            <head>
+                <title>QUACK! Secure Access</title>
+                <style>
+                    body { margin: 0; padding: 0; }
+                    .loading { 
+                        position: fixed; 
+                        top: 0; 
+                        left: 0; 
+                        width: 100%; 
+                        height: 100%; 
+                        background: white; 
+                        display: flex; 
+                        flex-direction: column;
+                        justify-content: center; 
+                        align-items: center; 
+                        z-index: 9999; 
+                    }
+                    .loading h1 { color: #4CAF50; font-size: 2.5em; margin-bottom: 20px; }
+                    .loading p { font-size: 1.2em; color: #333; }
+                    .loader {
+                        width: 50px;
+                        height: 50px;
+                        border: 5px solid #f3f3f3;
+                        border-top: 5px solid #4CAF50;
+                        border-radius: 50%;
+                        animation: spin 1s linear infinite;
+                        margin: 20px 0;
+                    }
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                    .content { display: none; }
+                    iframe { width: 100%; height: 100vh; border: none; }
+                    .timer { font-size: 0.9em; color: #666; margin-top: 10px; }
+                </style>
+                <script>
+                    setTimeout(function() {
+                        document.getElementById('loading').style.display = 'none';
+                        document.getElementById('content').style.display = 'block';
+                    }, 3000);
+                </script>
+            </head>
+            <body>
+                <div id="loading" class="loading">
+                    <h1>QUACK! 🦆</h1>
+                    <p>We are taking you to your exclusive album...</p>
+                    <div class="loader"></div>
+                    <p><small>Loading MEMSlide content...</small></p>
+                    <div class="timer">
+                        <small>⏱️ This access will expire in 5 minutes</small>
+                    </div>
+                </div>
+                <div id="content" class="content">
+                    <iframe src="https://pedroarrudar.wixstudio.com/test-umpalumpa" 
+                            sandbox="allow-scripts allow-same-origin allow-forms">
+                    </iframe>
+                </div>
+            </body>
+            </html>
+            """)
+        
     else:
-        # ACCESS DENIED: Duck arrest animation (keep your existing code)
+        # ACCESS DENIED: Missing or invalid parameters
+        logging.warning(f"Access denied to {request.remote_addr}: Missing parameters")
         return render_template_string("""
         <html>
         <head>
@@ -344,8 +533,8 @@ def validate_and_redirect():
             <div class="message">
                 <p><strong>QUACK QUACK!</strong> 🦆</p>
                 <p>This duck has been arrested for unauthorized access!</p>
-                <p>Please touch a valid MEMSlide with your phone to continue.</p>
-                <p><small>Crime: Attempting to access restricted album content without proper MEMSlide validation</small></p>
+                <p>Please touch a valid MEMSlide to continue.</p>
+                <p><small>Crime: Attempting to access restricted album content without proper mems.slide validation</small></p>
             </div>
         </body>
         </html>
