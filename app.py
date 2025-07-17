@@ -123,205 +123,48 @@ def validate_and_redirect():
     cmac = request.args.get('cmac')
     
     if picc_data and cmac:
-        # SUCCESS: Fetch and serve Wix Studio content
-        try:
-            # Fetch the Wix Studio page content
-            logging.info("Fetching Wix Studio content...")
-            wix_response = requests.get(
-                "https://pedroarrudar.wixstudio.com/test-umpalumpa",
-                headers={
-                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.5',
-                    'Accept-Encoding': 'gzip, deflate',
-                    'Connection': 'keep-alive',
-                    'Upgrade-Insecure-Requests': '1'
-                },
-                timeout=15,
-                allow_redirects=True
-            )
-            
-            if wix_response.status_code == 200:
-                logging.info("Wix Studio content fetched successfully")
-                
-                # Process the content to fix relative URLs
-                content = wix_response.text
-                
-                # Replace relative URLs with absolute URLs
-                content = content.replace('href="/', 'href="https://pedroarrudar.wixstudio.com/')
-                content = content.replace('src="/', 'src="https://pedroarrudar.wixstudio.com/')
-                content = content.replace("href='/", "href='https://pedroarrudar.wixstudio.com/")
-                content = content.replace("src='/", "src='https://pedroarrudar.wixstudio.com/")
-                
-                # Create response with QUACK message and masked content
-                masked_response = f"""
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>QUACK! Secure Access</title>
-                    <style>
-                        body {{ font-family: Arial, sans-serif; margin: 0; padding: 0; }}
-                        .loading {{
-                            position: fixed;
-                            top: 0;
-                            left: 0;
-                            width: 100%;
-                            height: 100%;
-                            background: white;
-                            display: flex;
-                            flex-direction: column;
-                            justify-content: center;
-                            align-items: center;
-                            z-index: 9999;
-                        }}
-                        .loading h1 {{ color: #4CAF50; font-size: 2.5em; margin-bottom: 20px; }}
-                        .loading p {{ font-size: 1.2em; color: #333; }}
-                        .loader {{
-                            width: 50px;
-                            height: 50px;
-                            border: 5px solid #f3f3f3;
-                            border-top: 5px solid #4CAF50;
-                            border-radius: 50%;
-                            animation: spin 1s linear infinite;
-                            margin: 20px 0;
-                        }}
-                        @keyframes spin {{
-                            0% {{ transform: rotate(0deg); }}
-                            100% {{ transform: rotate(360deg); }}
-                        }}
-                        .content {{
-                            display: none;
-                            width: 100%;
-                            height: 100vh;
-                            overflow: auto;
-                        }}
-                        .content.show {{
-                            display: block;
-                        }}
-                        .loading.hide {{
-                            display: none;
-                        }}
-                    </style>
-                </head>
-                <body>
-                    <div id="loading" class="loading">
-                        <h1>QUACK! 🦆</h1>
-                        <p>We are taking you to your secure destination...</p>
-                        <div class="loader"></div>
-                        <p><small>Loading exclusive content...</small></p>
-                    </div>
-                    
-                    <div id="content" class="content">
-                        {content}
-                    </div>
-                    
-                    <script>
-                        // Show content after 3 seconds
-                        setTimeout(function() {{
-                            document.getElementById('loading').classList.add('hide');
-                            document.getElementById('content').classList.add('show');
-                        }}, 3000);
-                        
-                        // Prevent right-click context menu
-                        document.addEventListener('contextmenu', function(e) {{
-                            e.preventDefault();
-                        }});
-                        
-                        // Prevent F12 developer tools
-                        document.addEventListener('keydown', function(e) {{
-                            if (e.key === 'F12' || 
-                                (e.ctrlKey && e.shiftKey && e.key === 'I') ||
-                                (e.ctrlKey && e.shiftKey && e.key === 'C') ||
-                                (e.ctrlKey && e.key === 'u')) {{
-                                e.preventDefault();
-                            }}
-                        }});
-                    </script>
-                </body>
-                </html>
-                """
-                
-                return Response(masked_response, mimetype='text/html')
-                
-            else:
-                # HTTP error from Wix Studio
-                logging.warning(f"Wix Studio returned status {wix_response.status_code}")
-                return render_template_string("""
-                <html>
-                <head>
-                    <title>QUACK! Service Issue</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-                        h1 { color: #ff9800; font-size: 2.5em; }
-                    </style>
-                </head>
-                <body>
-                    <h1>QUACK! 🦆</h1>
-                    <p>Content temporarily unavailable.</p>
-                    <p>Please try again in a few moments.</p>
-                    <p><small>Error code: {{ status_code }}</small></p>
-                </body>
-                </html>
-                """, status_code=wix_response.status_code)
-                
-        except requests.exceptions.Timeout:
-            logging.error("Timeout while fetching Wix Studio content")
-            return render_template_string("""
-            <html>
-            <head>
-                <title>QUACK! Timeout</title>
-                <style>
-                    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-                    h1 { color: #ff9800; font-size: 2.5em; }
-                </style>
-            </head>
-            <body>
+        return render_template_string("""
+        <html>
+        <head>
+            <title>QUACK! Secure Access</title>
+            <style>
+                body { margin: 0; padding: 0; }
+                .loading { 
+                    position: fixed; 
+                    top: 0; 
+                    left: 0; 
+                    width: 100%; 
+                    height: 100%; 
+                    background: white; 
+                    display: flex; 
+                    justify-content: center; 
+                    align-items: center; 
+                    z-index: 9999; 
+                }
+                .content { display: none; }
+                iframe { width: 100%; height: 100vh; border: none; }
+            </style>
+            <script>
+                setTimeout(function() {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('content').style.display = 'block';
+                }, 3000);
+            </script>
+        </head>
+        <body>
+            <div id="loading" class="loading">
                 <h1>QUACK! 🦆</h1>
-                <p>Content loading is taking longer than expected.</p>
-                <p>Please try tapping the NFC tag again.</p>
-            </body>
-            </html>
-            """)
-            
-        except requests.exceptions.ConnectionError:
-            logging.error("Connection error while fetching Wix Studio content")
-            return render_template_string("""
-            <html>
-            <head>
-                <title>QUACK! Connection Issue</title>
-                <style>
-                    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-                    h1 { color: #ff9800; font-size: 2.5em; }
-                </style>
-            </head>
-            <body>
-                <h1>QUACK! 🦆</h1>
-                <p>Network connection issue detected.</p>
-                <p>Please check your internet connection and try again.</p>
-            </body>
-            </html>
-            """)
-            
-        except Exception as e:
-            logging.error(f"Unexpected error while fetching Wix content: {e}")
-            return render_template_string("""
-            <html>
-            <head>
-                <title>QUACK! Service Error</title>
-                <style>
-                    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-                    h1 { color: #f44336; font-size: 2.5em; }
-                </style>
-            </head>
-            <body>
-                <h1>QUACK! 🦆</h1>
-                <p>An unexpected error occurred.</p>
-                <p>Please try again later.</p>
-            </body>
-            </html>
-            """)
+                <p> </p>
+                <p>Loading your exclusive content...</p>
+            </div>
+            <div id="content" class="content">
+                <iframe src="https://pedroarrudar.wixstudio.com/test-umpalumpa" 
+                        sandbox="allow-scripts allow-same-origin allow-forms">
+                </iframe>
+            </div>
+        </body>
+        </html>
+        """)
             
     else:
         # ACCESS DENIED: Duck arrest animation (keep your existing code)
