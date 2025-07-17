@@ -42,18 +42,6 @@ app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 # Configure logging for access monitoring
 logging.basicConfig(level=logging.INFO)
 
-# <<<<<<<<<<<
-
-# Configure logging level from environment
-log_level = os.environ.get('LOG_LEVEL', 'INFO')
-logging.basicConfig(level=getattr(logging, log_level))
-
-# Network timeout configuration
-REQUEST_TIMEOUT = int(os.environ.get('REQUEST_TIMEOUT', '10'))
-
-# <<<<<<<<<<<
-
-
 # Track used counters to prevent replay attacks
 used_counters = {}
 
@@ -122,59 +110,84 @@ def sdm_main():
 # NEW: Validation endpoint for NTAG 424 DNA access control
 @app.route('/validate')
 def validate_and_redirect():
+    # Log the access attempt
+    logging.info(f"NTAG validation attempt from {request.remote_addr}")
+    
+    # Get SDM parameters from the URL
     picc_data = request.args.get('picc_data')
     cmac = request.args.get('cmac')
     
     if picc_data and cmac:
+        # SUCCESS: Fetch Wix Studio content and serve it
         try:
-            # Test fetching Wix Studio content
+            # Fetch the Wix Studio page content
             wix_response = requests.get(
                 "https://pedroarrudar.wixstudio.com/test-umpalumpa",
                 headers={
-                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15'
+                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
                 },
                 timeout=10
             )
             
             if wix_response.status_code == 200:
+                # Show QUACK message first, then serve content
                 return render_template_string("""
                 <html>
                 <head>
-                    <title>QUACK! Development Test</title>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>QUACK! Loading Content...</title>
                     <style>
                         body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-                        .loading { color: #4CAF50; }
-                        .content { display: none; margin-top: 20px; }
+                        h1 { color: #4CAF50; font-size: 2.5em; }
+                        p { font-size: 1.2em; color: #333; }
+                        .loader { margin: 20px auto; width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid #4CAF50; border-radius: 50%; animation: spin 1s linear infinite; }
+                        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                        .hidden { display: none; }
                     </style>
                     <script>
                         setTimeout(function() {
-                            document.getElementById('loading').style.display = 'none';
-                            document.getElementById('content').style.display = 'block';
+                            document.getElementById('loading').classList.add('hidden');
+                            document.getElementById('content').classList.remove('hidden');
                         }, 3000);
                     </script>
                 </head>
                 <body>
-                    <div id="loading" class="loading">
+                    <div id="loading">
                         <h1>QUACK! 🦆</h1>
-                        <p>Development test - Loading content...</p>
+                        <p>We are fetching your exclusive content...</p>
+                        <div class="loader"></div>
+                        <p><small>Loading in 3 seconds...</small></p>
                     </div>
-                    <div id="content" class="content">
-                        <h2>✅ Content Fetched Successfully</h2>
-                        <p>URL masking working correctly</p>
-                        <details>
-                            <summary>Fetched Content Preview</summary>
-                            <div style="max-height: 300px; overflow-y: scroll; text-align: left;">
-                                {{ wix_content|safe }}
-                            </div>
-                        </details>
+                    <div id="content" class="hidden">
+                        {{ wix_content|safe }}
                     </div>
                 </body>
                 </html>
-                """, wix_content=wix_response.text[:1000] + "...")
+                """, wix_content=wix_response.text)
             else:
-                return f"<h1>❌ Failed to fetch content</h1><p>Status: {wix_response.status_code}</p>"
+                # Fallback if Wix content unavailable
+                return render_template_string("""
+                <html><body>
+                <h1>QUACK! 🦆</h1>
+                <p>Content temporarily unavailable. Please try again later.</p>
+                </body></html>
+                """)
+                
         except requests.exceptions.RequestException as e:
-            return f"<h1>❌ Request failed</h1><p>Error: {str(e)}</p>"
+            logging.error(f"Failed to fetch Wix content: {e}")
+            return render_template_string("""
+            <html><body>
+            <h1>QUACK! 🦆</h1>
+            <p>Service temporarily unavailable. Please try again later.</p>
+            </body></html>
+            """)
+    else:
+        # ACCESS DENIED: Duck arrest animation (keep existing code)
+        return render_template_string("""
+        <!-- Your existing duck arrest animation code -->
+        """), 403
             
 def parse_sdm_parameters(encrypted, cmac_param):
     """
